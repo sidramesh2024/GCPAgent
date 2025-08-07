@@ -1,0 +1,15 @@
+# Google Cloud Platform Configuration Template
+# Copy these variables to your .env file and fill in your actual values
+
+# Google AI API Key (for Gemini models)
+# Get this from: https://makersuite.google.com/app/apikey
+GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+
+# Alternative name for the same key
+GEMINI_API_KEY=your_google_ai_api_key_here
+
+# Google Cloud Project ID (optional, for advanced features)
+GOOGLE_CLOUD_PROJECT=your_project_id_here
+
+# Legacy OpenAI key (for comparison/testing)
+OPENAI_API_KEY=your_openai_api_key_here

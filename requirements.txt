@@ -12,3 +12,16 @@ httpx
 mcp
 streamlit
 pandas
+
+# Google Cloud Platform dependencies
+google-generativeai
+google-cloud-aiplatform
+google-auth
+google-cloud-storage
+google-auth-oauthlib
+google-auth-httplib2
+
+# Google ADK Tracing dependencies
+traceai-google-adk
+opentelemetry-exporter-otlp
+opentelemetry-sdk

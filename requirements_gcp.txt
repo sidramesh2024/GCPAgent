@@ -1,0 +1,24 @@
+# Google Cloud Platform dependencies
+google-cloud-aiplatform[adk,agent_engines]
+google-cloud-storage
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+
+# Core dependencies (same as before)
+requests
+beautifulsoup4
+python-dotenv
+pytest
+httpx
+rich
+pydantic
+streamlit
+pandas
+
+# Optional: Keep OpenAI compatibility
+openai
+
+# Remove these from original requirements.txt:
+# openai-agents (replace with Google ADK)
+# mcp (if using Google's tools instead)
