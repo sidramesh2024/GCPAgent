@@ -65,48 +65,48 @@ class EnhancedADKTracer:
             print(f"🔍 [ADK Trace] Starting workflow: {workflow_name}")
         return self.custom_tracer.start_workflow(workflow_name, details)
     
-    def complete_workflow(self, workflow_name: str, success: bool, details: Optional[Dict[str, Any]] = None):
+    def complete_workflow(self, workflow_name: str, success: bool = True):
         """Complete workflow with both custom and ADK tracing."""
         if self.adk_instrumented:
             status = "successfully" if success else "with errors"
             print(f"🔍 [ADK Trace] Workflow {workflow_name} completed {status}")
-        return self.custom_tracer.complete_workflow(workflow_name, success, details)
+        return self.custom_tracer.complete_workflow(workflow_name, success)
     
-    def start_agent(self, agent_name: str, message: str, details: Optional[Dict[str, Any]] = None) -> str:
+    def start_agent(self, agent_name: str, task: str, context: Dict[str, Any] = None):
         """Start agent with both custom and ADK tracing."""
         if self.adk_instrumented:
-            print(f"🤖 [ADK Trace] Agent {agent_name} starting: {message}")
-        return self.custom_tracer.start_agent(agent_name, message, details)
+            print(f"🤖 [ADK Trace] Agent {agent_name} starting: {task}")
+        return self.custom_tracer.start_agent(agent_name, task, context)
     
-    def complete_agent(self, event_id: str, agent_name: str, message: str, details: Optional[Dict[str, Any]] = None):
+    def complete_agent(self, agent_key: str, agent_name: str, result: str, details: Dict[str, Any] = None):
         """Complete agent with both custom and ADK tracing."""
         if self.adk_instrumented:
-            print(f"🤖 [ADK Trace] Agent {agent_name} completed: {message}")
-        return self.custom_tracer.complete_agent(event_id, agent_name, message, details)
+            print(f"🤖 [ADK Trace] Agent {agent_name} completed: {result}")
+        return self.custom_tracer.complete_agent(agent_key, agent_name, result, details)
     
-    def log_tool_call(self, agent_name: str, tool_name: str, parameters: Dict[str, Any], result_preview: Optional[str] = None):
+    def log_tool_call(self, agent_name: str, tool_name: str, parameters: Dict[str, Any], result: Any = None):
         """Log tool call with both custom and ADK tracing."""
         if self.adk_instrumented:
             print(f"🔧 [ADK Trace] {agent_name} called tool: {tool_name} with params: {parameters}")
-        return self.custom_tracer.log_tool_call(agent_name, tool_name, parameters, result_preview)
+        return self.custom_tracer.log_tool_call(agent_name, tool_name, parameters, result)
     
-    def log_response(self, agent_name: str, message: str, full_length: int, response_preview: Optional[str] = None):
+    def log_response(self, agent_name: str, response_preview: str, full_response_length: int):
         """Log response with both custom and ADK tracing."""
         if self.adk_instrumented:
-            print(f"💬 [ADK Trace] {agent_name} generated response ({full_length} chars)")
-        return self.custom_tracer.log_response(agent_name, message, full_length, response_preview)
+            print(f"💬 [ADK Trace] {agent_name} generated response ({full_response_length} chars)")
+        return self.custom_tracer.log_response(agent_name, response_preview, full_response_length)
     
-    def log_handoff(self, from_agent: str, to_agent: str, reason: str):
+    def log_handoff(self, from_agent: str, to_agent: str, reason: str, context: Dict[str, Any] = None):
         """Log handoff with both custom and ADK tracing."""
         if self.adk_instrumented:
             print(f"🔄 [ADK Trace] Handoff from {from_agent} to {to_agent}: {reason}")
-        return self.custom_tracer.log_handoff(from_agent, to_agent, reason)
+        return self.custom_tracer.log_handoff(from_agent, to_agent, reason, context)
     
-    def log_error(self, agent_name: str, error_message: str, details: Optional[Dict[str, Any]] = None):
+    def log_error(self, agent_name: str, error: str, details: Dict[str, Any] = None):
         """Log error with both custom and ADK tracing."""
         if self.adk_instrumented:
-            print(f"❌ [ADK Trace] Error in {agent_name}: {error_message}")
-        return self.custom_tracer.log_error(agent_name, error_message, details)
+            print(f"❌ [ADK Trace] Error in {agent_name}: {error}")
+        return self.custom_tracer.log_error(agent_name, error, details)
     
     def get_events(self) -> List[Dict[str, Any]]:
         """Get custom tracing events."""

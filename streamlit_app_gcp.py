@@ -316,14 +316,18 @@ def display_trip_plan(plan: TripPlan):
         rain_display = "25%"
         clothing_display = "Light layers"
         
-        # Try to extract temperature info from weather text
+        # Try to extract temperature info from weather text  
         import re
         if weather_text:
-            temp_matches = re.findall(r'(\d+).*?(?:°|degree)', weather_text)
+            # More specific regex to match actual temperatures (number followed directly by ° or degree)
+            temp_matches = re.findall(r'(\d+)\s*(?:°C|°|degree)', weather_text)
             if len(temp_matches) >= 2:
                 try:
-                    temps = [int(t) for t in temp_matches[:2]]
-                    temp_display = f"{min(temps)}°C - {max(temps)}°C"
+                    temps = [int(t) for t in temp_matches]
+                    # Filter out unrealistic temperatures (dates, years, etc.)
+                    realistic_temps = [t for t in temps if -30 <= t <= 60]
+                    if len(realistic_temps) >= 2:
+                        temp_display = f"{min(realistic_temps)}°C - {max(realistic_temps)}°C"
                 except:
                     pass
             

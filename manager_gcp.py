@@ -21,6 +21,15 @@ from gcp_agents import (
 )
 from tracing_adk import get_enhanced_tracer, setup_adk_tracing_environment
 
+# MCP imports for weather server
+try:
+    import subprocess
+    import json
+    from datetime import datetime, timedelta
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
+
 
 class AdventureManagerGCP:
     """Manages the adventure planning workflow using Google Cloud Platform agents."""
@@ -122,29 +131,160 @@ class AdventureManagerGCP:
             "use_real_weather": use_real_weather
         })
         
-        if not self.agents_initialized or not use_real_weather:
-            print("Using mock weather data...")
+        if not self.agents_initialized:
+            print("Weather agent not initialized, using basic mock data...")
             weather_info = get_weather_mock(context.query.location, context.query.start_date, context.query.end_date)
-            tracer.complete_agent(agent_key, "Weather Agent", "Mock weather data generated", {
+            tracer.complete_agent(agent_key, "Weather Agent", "Basic mock weather data generated", {
                 "temperature_range": weather_info.temperature_range,
                 "precipitation_chance": weather_info.precipitation_chance
             })
             return weather_info
         
         try:
-            tracer.log_tool_call("Weather Agent", "analyze_weather", {"context": "Trip context"})
-            weather_info = await self.weather_agent.analyze_weather(context)
-            tracer.complete_agent(agent_key, "Weather Agent", "Real weather analysis completed", {
-                "temperature_range": weather_info.temperature_range,
-                "precipitation_chance": weather_info.precipitation_chance
-            })
-            return weather_info
+            if use_real_weather:
+                # Use MCP weather server for real data
+                print("🌐 Connecting to MCP Weather Server for real weather data...")
+                tracer.log_tool_call("Weather Agent", "mcp_weather_server", {"context": "Trip context", "use_real_weather": True})
+                weather_info = await self._get_mcp_weather_info(context)
+                tracer.complete_agent(agent_key, "Weather Agent", "MCP weather data retrieved", {
+                    "temperature_range": weather_info.temperature_range,
+                    "precipitation_chance": weather_info.precipitation_chance
+                })
+                return weather_info
+            else:
+                # Use enhanced location-based mock data
+                print(f"📍 Using enhanced location-based weather for {context.query.location}...")
+                tracer.log_tool_call("Weather Agent", "analyze_weather", {"context": "Trip context", "use_real_weather": False})
+                weather_info = await self.weather_agent.analyze_weather(context, use_real_weather=False)
+                tracer.complete_agent(agent_key, "Weather Agent", "Enhanced mock weather analysis completed", {
+                    "temperature_range": weather_info.temperature_range,
+                    "precipitation_chance": weather_info.precipitation_chance
+                })
+                return weather_info
         except Exception as e:
             print(f"Weather analysis failed: {e}. Using mock data.")
             tracer.log_error("Weather Agent", str(e))
             weather_info = get_weather_mock(context.query.location, context.query.start_date, context.query.end_date)
             tracer.complete_agent(agent_key, "Weather Agent", "Fallback to mock data", {"error": str(e)})
             return weather_info
+
+    async def _get_mcp_weather_info(self, context: TripContext) -> WeatherAnalysis:
+        """Get weather information using the MCP weather server."""
+        if not MCP_AVAILABLE:
+            print("⚠️  MCP not available, using enhanced mock data...")
+            return await self.weather_agent.analyze_weather(context, use_real_weather=False)
+        
+        try:
+            # Use Docker to run the MCP weather server
+            print(f"🐳 Starting MCP weather server for {context.query.location}...")
+            
+            # Try with sudo first, then without
+            commands_to_try = [
+                ["sudo", "docker", "run", "--rm", 
+                 "-e", f"LOCATION={context.query.location}",
+                 "-e", f"START_DATE={context.query.start_date}",
+                 "-e", f"END_DATE={context.query.end_date}",
+                 "mcp-weather", "get_forecast", context.query.location],
+                ["docker", "run", "--rm",
+                 "-e", f"LOCATION={context.query.location}",
+                 "-e", f"START_DATE={context.query.start_date}",
+                 "-e", f"END_DATE={context.query.end_date}",
+                 "mcp-weather", "get_forecast", context.query.location]
+            ]
+            
+            result = None
+            for cmd in commands_to_try:
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+                    if result.returncode == 0:
+                        break
+                except subprocess.TimeoutExpired:
+                    print("⚠️  MCP weather server timeout")
+                    continue
+                except FileNotFoundError:
+                    if "sudo" in cmd:
+                        continue  # Try without sudo
+                    break
+            
+            if result and result.returncode == 0:
+                # Parse the MCP response
+                try:
+                    weather_data = json.loads(result.stdout)
+                    return self._parse_mcp_weather_response(weather_data, context)
+                except json.JSONDecodeError as e:
+                    print(f"⚠️  Failed to parse MCP weather response: {e}")
+            else:
+                print(f"⚠️  MCP weather server failed: {result.stderr if result else 'Unknown error'}")
+            
+        except Exception as e:
+            print(f"⚠️  MCP weather server error: {e}")
+        
+        # Fallback to enhanced mock data
+        print("📍 Falling back to enhanced location-based weather...")
+        return await self.weather_agent.analyze_weather(context, use_real_weather=False)
+    
+    def _parse_mcp_weather_response(self, weather_data: dict, context: TripContext) -> WeatherAnalysis:
+        """Parse MCP weather server response into WeatherAnalysis."""
+        try:
+            # Extract forecast data
+            daily_forecasts = weather_data.get("daily_forecasts", [])
+            location_info = weather_data.get("location", {})
+            
+            if not daily_forecasts:
+                raise ValueError("No forecast data in MCP response")
+            
+            # Calculate temperature range
+            temps_max = [day.get("temperature_max", 20) for day in daily_forecasts]
+            temps_min = [day.get("temperature_min", 15) for day in daily_forecasts]
+            temp_range = [min(temps_min), max(temps_max)]
+            
+            # Calculate precipitation chance
+            precip_chances = [day.get("precipitation_probability", 30) for day in daily_forecasts]
+            avg_precipitation = sum(precip_chances) / len(precip_chances)
+            
+            # Generate weather summary
+            location_name = location_info.get("name", context.query.location)
+            summary = f"Real weather forecast for {location_name} from {context.query.start_date} to {context.query.end_date}: "
+            
+            if avg_precipitation < 20:
+                summary += f"Clear conditions expected with temperatures from {temp_range[0]:.0f}°C to {temp_range[1]:.0f}°C. Perfect for outdoor activities!"
+            elif avg_precipitation < 50:
+                summary += f"Mixed weather conditions with temperatures from {temp_range[0]:.0f}°C to {temp_range[1]:.0f}°C. Pack for variable weather."
+            else:
+                summary += f"Rainy weather likely with temperatures from {temp_range[0]:.0f}°C to {temp_range[1]:.0f}°C. Indoor activities recommended."
+            
+            # Generate clothing recommendations
+            clothing = []
+            min_temp, max_temp = temp_range
+            
+            if max_temp >= 25:
+                clothing.extend(["light t-shirts", "shorts", "sandals", "sun hat"])
+            elif max_temp >= 20:
+                clothing.extend(["t-shirts", "light pants", "comfortable shoes"])
+            elif max_temp >= 15:
+                clothing.extend(["long sleeves", "pants", "light jacket"])
+            else:
+                clothing.extend(["warm clothes", "jacket", "layers"])
+            
+            if avg_precipitation > 30:
+                clothing.extend(["rain jacket", "umbrella"])
+            
+            return WeatherAnalysis(
+                summary=summary,
+                temperature_range=temp_range,
+                precipitation_chance=avg_precipitation,
+                recommended_clothing=clothing
+            )
+            
+        except Exception as e:
+            print(f"⚠️  Error parsing MCP weather data: {e}")
+            # Fallback to enhanced mock
+            return get_weather_mock(context.query.location, context.query.start_date, context.query.end_date)
 
     async def _search_for_activities(self, context: TripContext, weather_info: WeatherAnalysis) -> tuple[SearchResult, str]:
         """Search for activities, handling kid-friendly routing."""

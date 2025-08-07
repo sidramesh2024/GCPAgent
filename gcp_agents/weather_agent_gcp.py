@@ -3,14 +3,93 @@ Google Cloud Platform Weather Agent using Gemini and function calling.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import google.generativeai as genai
 from google.generativeai.types import FunctionDeclaration, Tool
 from models_gcp import TripContext, WeatherAnalysis
 
 
-# Mock weather functions (replace with real API calls)
+# Enhanced location-based mock weather (no API calls needed)
+
+
+def _get_location_based_mock_weather(location: str, start_date: str, end_date: str) -> Dict[str, Any]:
+    """Generate realistic mock weather based on location."""
+    location_lower = location.lower()
+    
+    # Location-specific weather patterns
+    if any(city in location_lower for city in ["toronto", "canada", "montreal", "vancouver"]):
+        # Canada - cooler, more rain
+        temp_range = (8, 22)
+        precipitation = 40
+        conditions = ["partly cloudy", "light rain", "overcast"]
+    elif any(city in location_lower for city in ["san francisco", "california", "los angeles", "seattle"]):
+        # West Coast US - mild, less rain in summer
+        temp_range = (15, 25)
+        precipitation = 20
+        conditions = ["sunny", "partly cloudy", "clear sky"]
+    elif any(city in location_lower for city in ["new york", "boston", "chicago", "philadelphia"]):
+        # East Coast US - variable
+        temp_range = (12, 28)
+        precipitation = 35
+        conditions = ["partly cloudy", "sunny", "light rain"]
+    elif any(city in location_lower for city in ["london", "paris", "berlin", "amsterdam"]):
+        # Europe - variable, often cloudy
+        temp_range = (10, 23)
+        precipitation = 45
+        conditions = ["overcast", "light rain", "partly cloudy"]
+    elif any(city in location_lower for city in ["tokyo", "seoul", "beijing", "shanghai"]):
+        # East Asia - variable
+        temp_range = (18, 30)
+        precipitation = 50
+        conditions = ["humid", "partly cloudy", "moderate rain"]
+    elif any(city in location_lower for city in ["sydney", "melbourne", "brisbane"]):
+        # Australia - depends on season
+        temp_range = (16, 26)
+        precipitation = 25
+        conditions = ["sunny", "partly cloudy", "clear sky"]
+    else:
+        # Default temperate climate
+        temp_range = (15, 25)
+        precipitation = 30
+        conditions = ["partly cloudy", "sunny", "light rain"]
+    
+    # Generate forecast for date range
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    forecast = []
+    
+    current_date = start
+    day_count = 0
+    while current_date <= end:
+        # Add small daily variation (±3°C for realism)
+        temp_variation = (day_count % 5) - 2  # Variation between -2 and +2
+        temp_min = temp_range[0] + temp_variation
+        temp_max = temp_range[1] + temp_variation
+        
+        # Add small precipitation variation (±10%)
+        precip_variation = (day_count % 7) - 3  # Variation between -3 and +3
+        precip = precipitation + precip_variation
+        
+        condition = conditions[day_count % len(conditions)]
+        
+        forecast.append({
+            "date": current_date.strftime("%Y-%m-%d"),
+            "temperature_min": max(temp_min, -10),  # Reasonable minimum
+            "temperature_max": min(temp_max, 45),   # Reasonable maximum  
+            "precipitation_chance": max(0, min(100, precip)),
+            "condition": condition
+        })
+        current_date += timedelta(days=1)
+        day_count += 1
+    
+    return {
+        "location": location,
+        "forecast": forecast
+    }
+
+
+# Mock weather functions (kept for fallback)
 def get_current_weather(location: str) -> Dict[str, Any]:
     """Mock function to get current weather for a location."""
     return {
@@ -129,62 +208,23 @@ class WeatherAgentGCP:
         else:
             raise ValueError(f"Unknown function: {function_name}")
     
-    async def analyze_weather(self, context: TripContext) -> WeatherAnalysis:
+    async def analyze_weather(self, context: TripContext, use_real_weather: bool = False) -> WeatherAnalysis:
         """Analyze weather for the given trip context."""
         current_date = datetime.now().date()
         trip_start = datetime.strptime(context.query.start_date, "%Y-%m-%d").date()
         days_until_trip = (trip_start - current_date).days
         
-        prompt = f"""
-You are a weather analyst helping travelers prepare for their trip.
-Current date: {current_date}
-Trip destination: {context.query.location}
-Trip dates: {context.query.start_date} to {context.query.end_date}
-Days until trip: {days_until_trip}
-
-Please analyze the weather for this trip:
-
-1. If the trip is within 7 days, use get_forecast to get detailed forecast data
-2. If the trip is more than 7 days away, use get_current_weather for general conditions
-3. Provide temperature range, precipitation chance, clothing recommendations, and any warnings
-4. Return your analysis in a structured format with:
-   - summary: Brief weather overview
-   - temperature_range: [min_temp, max_temp] in Celsius
-   - precipitation_chance: Percentage (0-100)
-   - recommended_clothing: List of clothing items
-   - weather_warnings: List of warnings (if any)
-
-Please use the weather tools to get actual data before providing your analysis.
-"""
-
-        try:
-            # Start conversation with the model
-            chat = self.model.start_chat()
-            response = chat.send_message(prompt)
+        # Note: Real weather is handled by MCP server in manager_gcp.py
+        # This method only handles enhanced location-based mock weather
+        print(f"📍 Using enhanced location-based mock weather for {context.query.location}...")
             
-            # Handle function calls
-            while response.candidates[0].content.parts:
-                part = response.candidates[0].content.parts[0]
-                
-                if hasattr(part, 'function_call') and part.function_call:
-                    # Execute the function call
-                    function_result = self._execute_function_call(part.function_call)
-                    
-                    # Send the function result back to the model
-                    response = chat.send_message(
-                        f"Function {part.function_call.name} result: {function_result}"
-                    )
-                else:
-                    # Extract structured response
-                    response_text = part.text
-                    return self._parse_weather_response(response_text, context)
-            
-            # Fallback if no proper response
-            return get_weather_mock(context.query.location, context.query.start_date, context.query.end_date)
-            
-        except Exception as e:
-            print(f"Weather analysis error: {e}")
-            return get_weather_mock(context.query.location, context.query.start_date, context.query.end_date)
+        # Use enhanced location-based mock weather
+        weather_data = _get_location_based_mock_weather(
+            context.query.location, 
+            context.query.start_date, 
+            context.query.end_date
+        )
+        return self._parse_real_weather_data(weather_data, context)
     
     def _parse_weather_response(self, response_text: str, context: TripContext) -> WeatherAnalysis:
         """Parse the model's response into a WeatherAnalysis object."""
@@ -284,6 +324,78 @@ Please use the weather tools to get actual data before providing your analysis.
         except Exception as e:
             print(f"Error parsing weather response: {e}")
             return get_weather_mock(context.query.location, context.query.start_date, context.query.end_date)
+    
+    def _parse_real_weather_data(self, weather_data: Dict[str, Any], context: TripContext) -> WeatherAnalysis:
+        """Parse weather data from API or enhanced mock into WeatherAnalysis."""
+        forecast = weather_data.get("forecast", [])
+        if not forecast:
+            # Fallback to basic mock
+            return get_weather_mock(context.query.location, context.query.start_date, context.query.end_date)
+        
+        # Calculate temperature range
+        temps_min = [day["temperature_min"] for day in forecast]
+        temps_max = [day["temperature_max"] for day in forecast]
+        temp_range = [min(temps_min), max(temps_max)]
+        
+        # Calculate average precipitation chance
+        precip_chances = [day["precipitation_chance"] for day in forecast]
+        avg_precipitation = sum(precip_chances) / len(precip_chances)
+        
+        # Generate clothing recommendations based on temperature and weather
+        clothing = self._generate_clothing_recommendations(temp_range, avg_precipitation, forecast)
+        
+        # Generate weather summary
+        location_name = weather_data.get("location", context.query.location)
+        conditions = [day["condition"] for day in forecast]
+        most_common_condition = max(set(conditions), key=conditions.count)
+        
+        summary = f"Weather forecast for {location_name} from {context.query.start_date} to {context.query.end_date}: "
+        if avg_precipitation < 20:
+            summary += f"Expect mostly {most_common_condition} conditions with temperatures ranging from {temp_range[0]:.0f}°C to {temp_range[1]:.0f}°C. Great weather for outdoor activities!"
+        elif avg_precipitation < 50:
+            summary += f"Variable conditions with {most_common_condition} weather and temperatures from {temp_range[0]:.0f}°C to {temp_range[1]:.0f}°C. Pack for mixed weather."
+        else:
+            summary += f"Expect frequent {most_common_condition} with temperatures from {temp_range[0]:.0f}°C to {temp_range[1]:.0f}°C. Indoor activities recommended."
+        
+        return WeatherAnalysis(
+            summary=summary,
+            temperature_range=temp_range,
+            precipitation_chance=avg_precipitation,
+            recommended_clothing=clothing
+        )
+    
+    def _generate_clothing_recommendations(self, temp_range: List[float], precipitation: float, forecast: List[Dict]) -> List[str]:
+        """Generate clothing recommendations based on weather data."""
+        clothing = []
+        min_temp, max_temp = temp_range
+        
+        # Temperature-based recommendations
+        if max_temp >= 25:
+            clothing.extend(["light t-shirts", "shorts", "sandals", "sun hat"])
+        elif max_temp >= 20:
+            clothing.extend(["t-shirts", "light pants", "comfortable shoes"])
+        elif max_temp >= 15:
+            clothing.extend(["long sleeves", "pants", "light jacket"])
+        elif max_temp >= 10:
+            clothing.extend(["sweater", "pants", "jacket", "closed shoes"])
+        else:
+            clothing.extend(["warm coat", "sweater", "long pants", "boots"])
+        
+        if min_temp < 10:
+            clothing.append("warm layers")
+        
+        # Precipitation-based recommendations
+        if precipitation > 30:
+            clothing.extend(["rain jacket", "umbrella", "waterproof shoes"])
+        elif precipitation > 15:
+            clothing.append("light rain jacket")
+        
+        # Seasonal recommendations
+        has_sun = any("clear" in day.get("condition", "").lower() or "sunny" in day.get("condition", "").lower() for day in forecast)
+        if has_sun:
+            clothing.extend(["sunglasses", "sunscreen"])
+        
+        return clothing[:8]  # Limit to 8 items
 
 
 def create_weather_agent_gcp() -> WeatherAgentGCP:
