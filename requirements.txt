@@ -1,0 +1,14 @@
+# Core dependencies
+openai-agents
+requests
+beautifulsoup4
+asyncio
+python-dotenv
+pytest
+httpx
+rich
+pydantic
+httpx
+mcp
+streamlit
+pandas
