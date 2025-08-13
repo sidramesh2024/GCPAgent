@@ -69,12 +69,13 @@ class AdventureManagerGCP:
             print(f"Warning: Could not initialize GCP agents: {e}")
             self.agents_initialized = False
 
-    async def run(self, query: TripQuery, use_real_weather: bool = False) -> TripPlan:
+    async def run(self, query: TripQuery, use_real_weather: bool = False, model_name: str = "gemini-1.0-pro") -> TripPlan:
         """Run the complete adventure planning workflow.
         
         Args:
             query: Trip query with destination, dates, and participant info
             use_real_weather: Whether to attempt real weather data (not implemented in this version)
+            model_name: Gemini model to use for agents (e.g., gemini-1.0-pro, gemini-1.5-flash, gemini-1.5-pro)
             
         Returns:
             Complete trip plan with recommendations
@@ -87,12 +88,32 @@ class AdventureManagerGCP:
             "dates": f"{query.start_date} to {query.end_date}",
             "participants": query.participant_number,
             "ages": query.participant_ages,
-            "use_real_weather": use_real_weather
+            "use_real_weather": use_real_weather,
+            "model_name": model_name
         })
         
         print(f"🚀 Starting GCP-powered adventure planning for {query.location}...")
         print(f"📅 Dates: {query.start_date} to {query.end_date}")
         print(f"👥 Participants: {query.participant_number} people (ages: {query.participant_ages})")
+        print(f"🤖 Using Gemini model: {model_name}")
+        
+        # Initialize agents with the selected model
+        try:
+            from gcp_agents import (
+                create_weather_agent_gcp,
+                create_activity_search_agent_gcp, 
+                create_recommendation_agent_gcp,
+                create_kid_friendly_activity_agent_gcp
+            )
+            
+            self.weather_agent = create_weather_agent_gcp(model_name)
+            self.activity_search_agent = create_activity_search_agent_gcp(model_name)
+            self.recommendation_agent = create_recommendation_agent_gcp(model_name)
+            self.kid_friendly_agent = create_kid_friendly_activity_agent_gcp(model_name)
+            print(f"✅ Agents initialized with {model_name}")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not initialize agents with {model_name}: {e}")
+            print("Using default agents...")
         
         # Create the context object
         trip_context = TripContext(query=query)

@@ -44,12 +44,12 @@ class StreamlitAdventureManagerGCP:
             st.error(f"❌ Failed to initialize GCP manager: {e}")
             self.manager = None
     
-    async def run_planning(self, query: TripQuery, use_real_weather: bool = False) -> TripPlan:
+    async def run_planning(self, query: TripQuery, use_real_weather: bool = False, model_name: str = "gemini-1.0-pro") -> TripPlan:
         """Run the planning workflow asynchronously."""
         if not self.manager:
             raise Exception("GCP Manager not initialized")
         
-        return await self.manager.run(query, use_real_weather=use_real_weather)
+        return await self.manager.run(query, use_real_weather=use_real_weather, model_name=model_name)
 
 
 def main():
@@ -162,6 +162,15 @@ def main():
             
             # Options
             st.subheader("Options")
+            
+            # Model selection
+            model_name = st.selectbox(
+                "🤖 Gemini Model",
+                options=["gemini-1.0-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+                index=0,  # Default to gemini-1.0-pro
+                help="Choose which Gemini model to use for AI agents"
+            )
+            
             use_real_weather = st.checkbox(
                 "🌤️ Use Real Weather Data",
                 value=False,
@@ -181,9 +190,14 @@ def main():
         else:
             st.warning("⚠️ No API key found")
             st.info("Set GOOGLE_AI_API_KEY in your .env file for full functionality")
+        
+
     
     # Main content area
     if submitted:
+        # Show configuration
+        st.info(f"🤖 Using Gemini model: {model_name}")
+        
         # Validate inputs
         if not destination:
             st.error("❌ Please enter a destination")
@@ -222,7 +236,7 @@ def main():
                 
                 try:
                     trip_plan = loop.run_until_complete(
-                        app_manager.run_planning(query, use_real_weather)
+                        app_manager.run_planning(query, use_real_weather, model_name)
                     )
                     
                     # Display results

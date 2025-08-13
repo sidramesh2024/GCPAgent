@@ -145,7 +145,7 @@ def get_weather_mock(location: str, start_date: str, end_date: str) -> WeatherAn
 class WeatherAgentGCP:
     """Google Cloud Platform Weather Agent using Gemini."""
     
-    def __init__(self, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, model_name: str = "gemini-1.0-pro"):
         """Initialize the weather agent with Gemini model."""
         self.model_name = model_name
         
@@ -398,6 +398,6 @@ class WeatherAgentGCP:
         return clothing[:8]  # Limit to 8 items
 
 
-def create_weather_agent_gcp() -> WeatherAgentGCP:
+def create_weather_agent_gcp(model_name: str = "gemini-1.0-pro") -> WeatherAgentGCP:
     """Create a GCP-powered weather agent."""
-    return WeatherAgentGCP()
+    return WeatherAgentGCP(model_name=model_name)

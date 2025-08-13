@@ -9,7 +9,7 @@ from models_gcp import TripContext, SearchResult, ActivityResult, CHILD_AGE_THRE
 class KidFriendlyAgentGCP:
     """Specialized agent for finding family-friendly activities using Gemini."""
     
-    def __init__(self, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, model_name: str = "gemini-1.0-pro"):
         """Initialize the kid-friendly agent with Gemini model."""
         self.model_name = model_name
         self.model = genai.GenerativeModel(model_name=model_name)
@@ -230,6 +230,6 @@ Provide 5-8 specific, well-researched activity recommendations.
         )
 
 
-def create_kid_friendly_activity_agent_gcp() -> KidFriendlyAgentGCP:
+def create_kid_friendly_activity_agent_gcp(model_name: str = "gemini-1.0-pro") -> KidFriendlyAgentGCP:
     """Create a GCP-powered kid-friendly activity agent."""
-    return KidFriendlyAgentGCP()
+    return KidFriendlyAgentGCP(model_name=model_name)

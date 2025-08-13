@@ -52,7 +52,7 @@ def check_child_threshold(participant_ages: List[int], threshold: int = CHILD_AG
 class SearchAgentGCP:
     """Google Cloud Platform Search Agent using Gemini."""
     
-    def __init__(self, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, model_name: str = "gemini-1.0-pro"):
         """Initialize the search agent with Gemini model."""
         self.model_name = model_name
         
@@ -294,7 +294,7 @@ Return a structured list of activities with detailed information and a search su
 class KidFriendlySearchAgentGCP:
     """Kid-friendly version of the search agent."""
     
-    def __init__(self, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, model_name: str = "gemini-1.0-pro"):
         """Initialize the kid-friendly search agent."""
         self.model_name = model_name
         self.search_tools = [
@@ -404,11 +404,11 @@ Use web_search_tool to find specific activities and return detailed information.
         )
 
 
-def create_activity_search_agent_gcp() -> SearchAgentGCP:
+def create_activity_search_agent_gcp(model_name: str = "gemini-1.0-pro") -> SearchAgentGCP:
     """Create a GCP-powered activity search agent."""
-    return SearchAgentGCP()
+    return SearchAgentGCP(model_name=model_name)
 
 
-def create_kid_friendly_activity_agent_gcp() -> KidFriendlySearchAgentGCP:
+def create_kid_friendly_activity_agent_gcp(model_name: str = "gemini-1.0-pro") -> KidFriendlySearchAgentGCP:
     """Create a GCP-powered kid-friendly activity search agent."""
-    return KidFriendlySearchAgentGCP()
+    return KidFriendlySearchAgentGCP(model_name=model_name)

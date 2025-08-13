@@ -10,7 +10,7 @@ from models_gcp import TripContext, SearchResult, TripPlan, ActivityRecommendati
 class RecommendationAgentGCP:
     """Google Cloud Platform Recommendation Agent using Gemini."""
     
-    def __init__(self, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, model_name: str = "gemini-1.0-pro"):
         """Initialize the recommendation agent with Gemini model."""
         self.model_name = model_name
         self.model = genai.GenerativeModel(model_name=model_name)
@@ -294,6 +294,6 @@ Requirements:
         )
 
 
-def create_recommendation_agent_gcp() -> RecommendationAgentGCP:
+def create_recommendation_agent_gcp(model_name: str = "gemini-1.0-pro") -> RecommendationAgentGCP:
     """Create a GCP-powered recommendation agent."""
-    return RecommendationAgentGCP()
+    return RecommendationAgentGCP(model_name=model_name)
